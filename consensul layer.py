@@ -1,75 +1,75 @@
 from web3 import Web3
 from eth_account.messages import encode_defunct
 
-# Подключение к Ethereum ноде
-web3 = Web3(Web3.HTTPProvider('https://mainnet.infura.io/v3/your_infura_project_id'))
+# Connection to  Ethereum node
+web3 = Web3(Web3.HTTPProvider(''))
 
-# Адрес смарт-контракта для отслеживания депозитов
-contract_address = '0x4242424242424242424242424242424242424242'
+# Deposit-contract address
+contract_address = ''
 
-# Адрес смарт-контракта для вызова методов
-contract_address_validator = '0xe048ac2464c8028ecc8c931b70b11e20fd0a5318'
+# Smart-contract address
+contract_address_validator = ''
 
-# Аби для смарт-контракта
+# Smart-contract abi
 contract_abi = '[{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"bytes","name":"pubkey","type":"bytes"}],"name":"AlreadyExists","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"address","name":"sender","type":"address"}],"name":"WrongSignature","type":"event"},{"inputs":[],"name":"admin","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bytes","name":"pubkey","type":"bytes"}],"name":"alreadyExists","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"sender","type":"address"}],"name":"invalidSignature","outputs":[],"stateMutability":"nonpayable","type":"function"}]'
 
-# Создание объекта смарт-контракта
+# Creating smart-contract object
 contract = web3.eth.contract(address=contract_address, abi=contract_abi)
 
-# Функция для проверки подписи
+# Function to check signatures
 def is_signature_valid(message, signature, sender):
-    # Преобразование сообщения в хэш
+    # Converting message into hash
     message_hash = Web3.keccak(text=message)
-    # Проверка подписи
+    # Checking signature
     try:
         recovered_address = web3.eth.account.recover_message(encode_defunct(text=message), signature=signature)
         return sender.lower() == recovered_address.lower()
     except:
         return False
 
-# Функция для вызова метода invalidSignature
+# Function to call a smart-contracts method <invalidSignature>
 def call_invalid_signature():
     # Вызов метода invalidSignature
     tx_hash = contract.functions.invalidSignature().transact()
-    # Ожидание подтверждения транзакции
+    # Waiting for transaction confirmation
     web3.eth.waitForTransactionReceipt(tx_hash)
 
-# Функция для вызова метода alreadyExists
+# Function to call a smart-contracts method  <alreadyExists>
 def call_already_exists(public_key):
-    # Вызов метода alreadyExists
+    # Calling alreadyExists method
     tx_hash = contract.functions.alreadyExists(public_key).transact()
-    # Ожидание подтверждения транзакции
+    # Waiting for transaction confirmation
     web3.eth.waitForTransactionReceipt(tx_hash)
 
-# Функция для проверки наличия валидатора на Consensus Layer
+# Function to check validator on Consensus Layer
 def validator_already_exists(public_key):
     try:
-        # Создание объекта смарт-контракта для работы с адресом contract_address_validator
+        # Create a smart contract object to work with the contract_address_validator address
         contract_validator = web3.eth.contract(address=contract_address_validator, abi=contract_abi)
         
-        # Вызов метода для проверки наличия валидатора на Consensus Layer
+        # Method for checking the presence of validator on Consensus Layer
         exists = contract_validator.functions.validatorExists(public_key).call()
         return exists
     except Exception as e:
-        print(f"Ошибка при проверке наличия валидатора: {str(e)}")
+        print(f"The validation check failed: {str(e)}")
         return False
 
-# Отслеживание новых транзакций на контракт
+# Tracking new contract transactions
 def watch_deposits():
     filter = contract.events.Deposit.createFilter(fromBlock='latest')
     for event in filter.get_new_entries():
-        # Получение данных о транзакции
+        # Transaction data retrieval
         transaction = web3.eth.getTransaction(event['transactionHash'])
-        # Проверка подписи
+        # Signature verification
         if is_signature_valid(event['message'], event['signature'], transaction['from']):
-            # Проверка наличия валидатора на Consensus Layer
+            # Validator check on Consensus Layer
             if validator_already_exists(event['publicKey']):
-                # Вызов метода alreadyExists
+                # Calling alreadyExists method
                 call_already_exists(event['publicKey'])
         else:
-            # Вызов метода invalidSignature
+            # Calling invalidSignature method
             call_invalid_signature()
 
-# Основной цикл программы
+# Main program cycle
 if __name__ == '__main__':
     watch_deposits()
